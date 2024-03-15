@@ -1,50 +1,47 @@
 import pandas as pd
 import requests
 from google.transit import gtfs_realtime_pb2
-import datetime
-import pytz
+import time
 
-def get_current_time():
-    utc_now = datetime.datetime.now(datetime.timezone.utc)
-    est_now = utc_now.astimezone(pytz.timezone("America/New_York"))
-    print(f"Current Time (EST): {est_now.strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Current Time (UTC): {utc_now.strftime('%Y-%m-%d %H:%M:%S')}")
+def load_stops(static_gtfs_path):
+    stops_df = pd.read_csv(f"{static_gtfs_path}/stops.txt", usecols=['stop_id', 'stop_name'])
+    # Some stops may have suffixes N/S in real-time but not in static data.
+    stop_id_to_name = {stop_id.split('N')[0].split('S')[0]: stop_name for stop_id, stop_name in zip(stops_df['stop_id'], stops_df['stop_name'])}
+    return stop_id_to_name
 
-stops_file_path = '/Users/Rm501_09/Documents/MTA_ASR_24/google_transit_supplemented/stops.txt'
-stops_df = pd.read_csv(stops_file_path, usecols=['stop_id', 'stop_name'])
-stops_mapping = dict(zip(stops_df['stop_id'], stops_df['stop_name']))
+def get_direction(stop_id):
+    if "N" in stop_id:
+        return "North"
+    elif "S" in stop_id:
+        return "South"
+    else:
+        return "Terminus"
 
-def get_stop_name(stop_id):
-    return stops_mapping.get(stop_id, "Unknown Stop")
+def fetch_and_display_realtime_data(api_key, stop_id_to_name):
+    feed_url = 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-l'
+    headers = {'x-api-key': api_key}
+    response = requests.get(feed_url, headers=headers)
+    current_time = int(time.time())
 
-api_key = "prFGb6l4Ugx0iK5LaOCc67RLHRXd6o84BZx0bkTj"
-feed_url = 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-l'
+    if response.status_code == 200:
+        feed = gtfs_realtime_pb2.FeedMessage()
+        feed.ParseFromString(response.content)
+        
+        for entity in feed.entity:
+            if entity.HasField('trip_update'):
+                for update in entity.trip_update.stop_time_update:
+                    # Filter out stop_time_updates that are too far in the future
+                    if update.arrival.time >= current_time - 60*5 and update.arrival.time <= current_time + 60*15:
+                        stop_id = update.stop_id
+                        direction = get_direction(stop_id)
+                        # Attempt to strip directional suffix for matching
+                        base_stop_id = stop_id.strip("NS")
+                        stop_name = stop_id_to_name.get(base_stop_id, "Unknown Stop")
+                        print(f"Stop Name: {stop_name}, Direction: {direction}, Arrival Time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(update.arrival.time))}")
+    else:
+        print("Failed to fetch GTFS-RT data.")
 
-headers = {'x-api-key': api_key}
-
-response = requests.get(feed_url, headers=headers, allow_redirects=True)
-
-get_current_time()
-
-if response.status_code == 200:
-    print("Successfully accessed the MTA Realtime API!")
-    feed = gtfs_realtime_pb2.FeedMessage()
-    feed.ParseFromString(response.content)
-
-    for entity in feed.entity[:5]:
-        print(f"\nEntity ID: {entity.id}")
-        stop_ids = [update.stop_id for update in entity.trip_update.stop_time_update]
-        if 'L29' in stop_ids:
-            direction_name = "Canarsie-Rockaway Pkwy"
-        elif 'L01' in stop_ids:
-            direction_name = "8 Av"
-        else:
-            direction_name = "Unknown direction"
-        print(f"Direction: {direction_name}")
-
-        for update in entity.trip_update.stop_time_update:
-            stop_id = update.stop_id
-            stop_name = get_stop_name(stop_id)
-            print(f"Stop ID: {stop_id}, Stop Name: {stop_name}")
-else:
-    print(f"Failed to access the MTA Realtime API. Status code: {response.status_code}")
+api_key = "prFGb6l4Ugx0iK5LaOCc67RLHRXd6o84BZx0bkTj"  # Replace with your actual MTA API key
+static_gtfs_path = "/Users/Rm501_09/Documents/MTA_ASR_24/google_transit_supplemented/"
+stop_id_to_name = load_stops(static_gtfs_path)
+fetch_and_display_realtime_data(api_key, stop_id_to_name)
