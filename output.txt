@@ -1,0 +1,4 @@
+
+image 1/1 /Users/Rm501_09/Documents/MTA_ASR_24/video/image2.webp: 352x640 4 persons, 1 bus, 2 suitcases, 245.7ms
+Speed: 17.0ms preprocess, 245.7ms inference, 28.3ms postprocess per image at shape (1, 3, 352, 640)
+Results saved to [1m/Users/Rm501_09/Documents/MTA_ASR_24/video/results/predict48[0m

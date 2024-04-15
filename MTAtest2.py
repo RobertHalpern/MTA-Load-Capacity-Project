@@ -2,6 +2,7 @@ import pandas as pd
 import requests
 from google.transit import gtfs_realtime_pb2
 import datetime
+import re
 
 def load_stops(static_gtfs_path):
     stops_df = pd.read_csv(f"{static_gtfs_path}/stops.txt", usecols=['stop_id', 'stop_name'])
@@ -41,3 +42,29 @@ def display_train_positions(api_key, static_gtfs_path):
 api_key = "prFGb6l4Ugx0iK5LaOCc67RLHRXd6o84BZx0bkTj"  # Replace with your actual MTA API key
 static_gtfs_path = "/Users/Rm501_09/Documents/MTA_ASR_24/google_transit_supplemented/"
 display_train_positions(api_key, static_gtfs_path)
+
+
+
+# Part 2: Mapping the camera to the MTA API
+# We're going to pretend that the personDetect2 script outputs both A) The number of people and B) the number of people in the frame. 
+
+
+# Pulling the detected # of people from personDetect2.py 
+log_file_path = 'app.log'
+# Regular expression pattern to match lines with 'x persons'
+person_pattern = re.compile(r'(\d+)\s+persons')
+
+# Function to search for 'x persons' in the log file
+def search_persons_in_log(file_path):
+    results = []
+    with open(file_path, 'r') as file:
+        for line in file:
+            match = person_pattern.search(line)
+            if match:
+                results.append(match.group(0))  # captures the entire match, which includes the number and 'persons'
+    return results
+
+# Execute the function and print the results
+detected_persons = search_persons_in_log(log_file_path)
+for item in detected_persons:
+    print(item)
