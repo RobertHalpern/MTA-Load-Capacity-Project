@@ -50,21 +50,33 @@ display_train_positions(api_key, static_gtfs_path)
 
 
 # Pulling the detected # of people from personDetect2.py 
+
+# Path to the log file
 log_file_path = 'app.log'
+
 # Regular expression pattern to match lines with 'x persons'
 person_pattern = re.compile(r'(\d+)\s+persons')
 
-# Function to search for 'x persons' in the log file
-def search_persons_in_log(file_path):
+# Regular expression to extract the camera name from the file path
+camera_name_pattern = re.compile(r'/Users/Rm501_09/Documents/MTA_ASR_24/video/(.+)\.webp')
+
+# Function to search for 'x persons' and camera names in the log file
+def search_persons_and_camera_in_log(file_path):
     results = []
     with open(file_path, 'r') as file:
         for line in file:
-            match = person_pattern.search(line)
-            if match:
-                results.append(match.group(0))  # captures the entire match, which includes the number and 'persons'
+            # Search for number of persons
+            person_match = person_pattern.search(line)
+            # Search for camera name
+            camera_match = camera_name_pattern.search(line)
+            if person_match and camera_match:
+                # Extracts the camera name from the match
+                camera_name = camera_match.group(1)
+                # Append both the number of persons and the camera name to results
+                results.append((person_match.group(0), camera_name))
     return results
 
 # Execute the function and print the results
-detected_persons = search_persons_in_log(log_file_path)
-for item in detected_persons:
-    print(item)
+detected_info = search_persons_and_camera_in_log(log_file_path)
+for persons, camera_name in detected_info:
+    print(f"Camera: {camera_name}, Detected: {persons}")
