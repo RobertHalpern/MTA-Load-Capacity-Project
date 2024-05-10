@@ -3,6 +3,7 @@ import requests
 from google.transit import gtfs_realtime_pb2
 import datetime
 import re
+from privatekey import MTA_API_KEY
 
 def load_stops(static_gtfs_path):
     stops_df = pd.read_csv(f"{static_gtfs_path}/stops.txt", usecols=['stop_id', 'stop_name'])
@@ -12,13 +13,13 @@ def load_stops(static_gtfs_path):
 
 def fetch_realtime_data(api_key):
     feed_url = 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-l'
-    headers = {'x-api-key': api_key}
+    headers = {'x-api-key': MTA_API_KEY}
     response = requests.get(feed_url, headers=headers)
     return response.content if response.status_code == 200 else None
 
 def display_train_positions(api_key, static_gtfs_path):
     stop_id_to_name = load_stops(static_gtfs_path)
-    feed_content = fetch_realtime_data(api_key)
+    feed_content = fetch_realtime_data(MTA_API_KEY)
     if feed_content:
         feed = gtfs_realtime_pb2.FeedMessage()
         feed.ParseFromString(feed_content)
@@ -39,9 +40,9 @@ def display_train_positions(api_key, static_gtfs_path):
                             print(f"Trip ID: {trip_id}, Next Stop: {stop_name}, Direction: {direction}, Arrival Time: {datetime.datetime.fromtimestamp(update.arrival.time).strftime('%Y-%m-%d %H:%M:%S')}")
                             unique_trains[trip_id] = True
 
-api_key = "prFGb6l4Ugx0iK5LaOCc67RLHRXd6o84BZx0bkTj"  # Replace with your actual MTA API key
+#api_key = MTA_API_KEY  # Replace with your actual MTA API key
 static_gtfs_path = "/Users/Rm501_09/Documents/MTA_ASR_24/google_transit_supplemented/"
-display_train_positions(api_key, static_gtfs_path)
+display_train_positions(MTA_API_KEY, static_gtfs_path)
 
 
 
@@ -52,31 +53,56 @@ display_train_positions(api_key, static_gtfs_path)
 # Pulling the detected # of people from personDetect2.py 
 
 # Path to the log file
-log_file_path = 'app.log'
+log_file_path = 'model_results.log'
 
 # Regular expression pattern to match lines with 'x persons'
 person_pattern = re.compile(r'(\d+)\s+persons')
 
 # Regular expression to extract the camera name from the file path
-camera_name_pattern = re.compile(r'/Users/Rm501_09/Documents/MTA_ASR_24/video/(.+)\.webp')
+#camera_name_pattern = re.compile(r'/Users/Rm501_09/Documents/MTA_ASR_24/video/(.+)\.webp')
+camera_name_pattern = re.compile(r'camera\d+')
 
 # Function to search for 'x persons' and camera names in the log file
+# def search_persons_and_camera_in_log(file_path):
+#     results = []
+#     with open(file_path, 'r') as file:
+#         for line in file:
+#             # Search for number of persons
+#             person_match = person_pattern.search(line)
+#             # Search for camera name
+#             camera_match = camera_name_pattern.search(line)
+#             if person_match and camera_match:
+#                 # Extracts the camera name from the match
+#                 camera_name = camera_match.group(1)
+#                 # Append both the number of persons and the camera name to results
+#                 results.append((person_match.group(0), camera_name))
+#     return results
+
+
 def search_persons_and_camera_in_log(file_path):
     results = []
     with open(file_path, 'r') as file:
         for line in file:
-            # Search for number of persons
-            person_match = person_pattern.search(line)
-            # Search for camera name
-            camera_match = camera_name_pattern.search(line)
-            if person_match and camera_match:
-                # Extracts the camera name from the match
-                camera_name = camera_match.group(1)
-                # Append both the number of persons and the camera name to results
-                results.append((person_match.group(0), camera_name))
+            # Updated regex patterns
+            camera_match = re.search(r'camera\d+', line)
+            person_match = re.search(r'(\d+)\s+persons', line)
+            
+            if camera_match and person_match:
+                camera_name = camera_match.group(0)
+                person_count = person_match.group(1)
+                results.append((camera_name, person_count))
+                
     return results
+
 
 # Execute the function and print the results
 detected_info = search_persons_and_camera_in_log(log_file_path)
-for persons, camera_name in detected_info:
-    print(f"Camera: {camera_name}, Detected: {persons}")
+for camera_name, persons in detected_info:
+    print(f"Source Camera: {camera_name}, Detected: {persons}")
+# Open the file 'output.txt' in write mode ('w')
+with open('output.txt', 'w') as file:
+    print(f"Source Camera, Detected Count", file=file)
+    for camera_name, persons in detected_info:
+        print(f"{camera_name}, {persons}", file=file)
+
+        

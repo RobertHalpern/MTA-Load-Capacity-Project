@@ -1,78 +1,42 @@
 import streamlit as st
-# import pandas as pd
+import os
 
-# def main():
-#     # Set the title of the web page
-#     st.title('Your Website Title Here')
+def load_camera_data(file_path):
+    """ Reads the camera data, ignoring the header. """
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+    # Assuming the first line is the header and should be ignored
+    return [line.strip() for line in lines[1:] if line.strip()]
 
-#     # Instructions or description
-#     st.write("Please upload a text file to view it as a table.")
+def display_images(camera_names):
+    """ Displays clickable buttons for each camera, showing images when clicked. """
+    st.title('MTA Countdown Clock with Passenger Capacity')
+    
+    # Two columns layout: left for image display, right for camera list
+    col1, col2 = st.columns([3, 1])
 
-#     # Create a file uploader widget in the sidebar
-#     uploaded_file = st.sidebar.file_uploader("Choose a text file", type=["txt"])
+    with col2:
+        st.subheader("Camera List")
+        # Dynamically create buttons for each camera
+        for index, name in enumerate(camera_names, start=1):
+            if st.button(f'Camera {index} - {name}'):
+                st.session_state['selected_camera'] = index
 
-#     if uploaded_file is not None:
-#         try:
-#             # Assuming the file is in a simple CSV-like format
-#             # Create a DataFrame
-#             df = pd.read_csv(uploaded_file)
-            
-#             # Display the DataFrame
-#             st.write("Here's the data from your file:")
-#             st.dataframe(df)
-
-#             for row in df
-#                 if column ['Detected'] > '2':
-#                     st.write(f"Camera 1 detected {row['person_count']} persons.")
-
-#         except Exception as e:
-#             st.error(f"An error occurred: {e}")
-
-# if __name__ == "__main__":
-#     main()
-import streamlit as st
-import pandas as pd
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-
-# Helper function to get color based on percentage full
-def get_color(percentage):
-    norm = mpl.colors.Normalize(vmin=0, vmax=100)
-    color_map = mpl.colors.LinearSegmentedColormap.from_list("", ["white", "red"])
-    return mpl.colors.rgb2hex(color_map(norm(percentage)))
+    with col1:
+        st.subheader("Image for AI Model")
+        if 'selected_camera' in st.session_state:
+            image_path = f'/Users/Rm501_09/Documents/MTA_ASR_24/video/consists/results/predict{st.session_state["selected_camera"]}/camera{st.session_state["selected_camera"]}.jpg'
+            if os.path.exists(image_path):
+                st.image(image_path, caption=f'Camera {st.session_state["selected_camera"]} - Image')
+            else:
+                st.error("Image not found. Check the camera output directory.")
 
 def main():
-    st.title('Subway Car Occupancy Visualization')
+    camera_names = load_camera_data('output.txt')
+    if camera_names:
+        display_images(camera_names)
+    else:
+        st.error("No camera data found in output.txt")
 
-    # File uploader
-    uploaded_file = st.sidebar.file_uploader("Upload your output.txt", type="txt")
-    if uploaded_file is not None:
-        # Read the data from the file, trimming spaces from headers
-        data = pd.read_csv(uploaded_file)
-        data.columns = data.columns.str.strip()  # Strip whitespace from column headers
-
-        # Debug: Print column names to help ensure they are what we expect
-        st.write("Column names:", data.columns.tolist())
-
-        # Assuming 200 is the max capacity of a subway car
-        max_capacity = 200
-        try:
-            data['Percent Full'] = (data['Detected Count'] / max_capacity) * 100
-            data['Color'] = data['Percent Full'].apply(get_color)
-            
-            # Displaying the DataFrame
-            st.write("Data from uploaded file:")
-            st.dataframe(data.style.applymap(lambda x: f'background-color: {x}' if isinstance(x, str) else ''))
-
-            # Plotting
-            fig, ax = plt.subplots()
-            ax.bar(data['Source Camera'], data['Percent Full'], color=data['Color'])
-            plt.xlabel('Source Camera')
-            plt.ylabel('Percent Full')
-            plt.title('Visualization of Subway Car Fullness')
-            st.pyplot(fig)
-        except KeyError as e:
-            st.error(f"Column not found in data: {e}")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
