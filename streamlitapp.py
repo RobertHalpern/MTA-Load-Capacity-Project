@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import re
 
 def load_data(file_path):
     """Reads the camera and schedule data from the output file."""
@@ -32,10 +33,20 @@ def display_train_diagram(camera_data):
         # Use markdown to create a visually styled box
         st.markdown(f"<div style='width: 100px; height: 50px; background-color: {color}; color: black; border-radius: 10px; text-align: center; line-height: 50px;'>{name} | {int(percent)}%</div>", unsafe_allow_html=True)
 
+def extract_numeric_stop_id(schedule_entry):
+    """Extracts the numeric part of the stop ID from a schedule entry."""
+    match = re.search(r'\bL(\d+)[NS]\b', schedule_entry)
+    if match:
+        return int(match.group(1))
+    return float('inf')  # If no match is found, put it at the end
+
 def display_schedule(schedule_data):
-    """Displays the schedule information."""
+    """Displays the schedule information sorted by the numeric part of the stop ID."""
+    # Sort the schedule data by the numeric part of the stop ID
+    sorted_schedule_data = sorted(schedule_data, key=extract_numeric_stop_id)
+    
     st.write("Train Schedule Information")
-    for schedule in schedule_data:
+    for schedule in sorted_schedule_data:
         st.write(schedule)
 
 def display_images(camera_data, schedule_data):
