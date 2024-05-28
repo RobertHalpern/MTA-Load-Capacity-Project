@@ -28,7 +28,7 @@ def display_train_positions(api_key, static_gtfs_path, output_file):
         unique_trains = {}  # Track unique trains to avoid duplicates
 
         with open(output_file, 'a') as file:  # Append mode to continue writing to the same file
-            print(f"Schedules", file=file)
+            print(f"\nSchedules", file=file)
             for entity in feed.entity:
                 if entity.HasField('trip_update'):
                     for update in entity.trip_update.stop_time_update:
@@ -42,32 +42,30 @@ def display_train_positions(api_key, static_gtfs_path, output_file):
                                 print(f"Trip ID: {trip_id}, Stop ID: {stop_id}, Next Stop: {stop_name}, Direction: {direction}, Arrival Time: {datetime.datetime.fromtimestamp(update.arrival.time).strftime('%Y-%m-%d %H:%M:%S')}", file=file)
                                 unique_trains[trip_id] = True
 
-
-# Part 2: Mapping the camera to the MTA API
-# We're going to pretend that the personDetect2 script outputs both A) The number of people and B) the number of people in the frame. 
-
 # Path to the log file
 log_file_path = 'model_results.log'
 
 # Regular expression pattern to match lines with 'x persons'
 person_pattern = re.compile(r'(\d+)\s+persons')
 
-# Regular expression to extract the camera name from the file path
-#camera_name_pattern = re.compile(r'/Users/Rm501_09/Documents/MTA_ASR_24/video/(.+)\.webp')
-camera_name_pattern = re.compile(r'camera\d+')
+# Regular expression to extract the camera name and folder number from the log
+camera_pattern = re.compile(r'camera(\d+)')
+folder_pattern = re.compile(r'predict(\d+)')
 
 def search_persons_and_camera_in_log(file_path):
     results = []
     with open(file_path, 'r') as file:
         for line in file:
-            # Updated regex patterns
-            camera_match = re.search(r'camera\d+', line)
-            person_match = re.search(r'(\d+)\s+persons', line)
+            # Extract camera number, folder number, and persons count
+            camera_match = camera_pattern.search(line)
+            folder_match = folder_pattern.search(line)
+            person_match = person_pattern.search(line)
             
-            if camera_match and person_match:
-                camera_name = camera_match.group(0)
+            if camera_match and folder_match and person_match:
+                camera_num = camera_match.group(1)
+                folder_num = folder_match.group(1)
                 person_count = person_match.group(1)
-                results.append((camera_name, person_count))
+                results.append((camera_num, folder_num, person_count))
                 
     return results
 
@@ -77,16 +75,12 @@ detected_info = search_persons_and_camera_in_log(log_file_path)
 # Define output file
 output_file = 'output.txt'
 
-
-
 # Open the file 'output.txt' in write mode ('w') for initial write
 with open(output_file, 'w') as file:
-    print(f"Source Camera, Detected Count", file=file)
-    for camera_name, persons in detected_info:
-        print(f"{camera_name}, {persons}", file=file)
+    print(f"Source Camera, Folder Number, Detected Count", file=file)
+    for camera_num, folder_num, persons in detected_info:
+        print(f"{camera_num}, {folder_num}, {persons}", file=file)
 
 # Call the function to display train positions and append to the same file
 static_gtfs_path = "/Users/Rm501_09/Documents/MTA_ASR_24/google_transit_supplemented/"
 display_train_positions(MTA_API_KEY, static_gtfs_path, output_file)
-
-
